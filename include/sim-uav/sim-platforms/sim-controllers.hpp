@@ -82,6 +82,7 @@
 #include "mrac-hybrid-tailsitter.hpp"
 #include "mrac-omega-quadm.hpp"
 #include "mrac-geometric-quadm.hpp"
+#include "rkhs-mrac-geometric-quadm.hpp"
 // #include "pid-x8copter.hpp"
 // #include "mrac-x8copter.hpp"
 
@@ -170,6 +171,7 @@ struct controllers
     {
         bool mrac_omega{};      // MRAC omega controller for QUADM
         bool mrac_geometric{};  // MRAC geometric controller for QUADM
+        bool rkhs_mrac_geometric{};  // RKHS MRAC geometric controller for QUADM
     } quadm;
 
     // -------------------------------------------------------------------------
@@ -195,7 +197,8 @@ struct controllers
             {"tailsitter", "mrac_geometric", tailsitter.mrac_geometric},
             {"tailsitter", "mrac_hybrid", tailsitter.mrac_hybrid},
             {"quadm", "mrac_omega", quadm.mrac_omega},
-            {"quadm", "mrac_geometric", quadm.mrac_geometric}
+            {"quadm", "mrac_geometric", quadm.mrac_geometric},
+            {"quadm", "rkhs_mrac_geometric", quadm.rkhs_mrac_geometric}
         };
     }
 
@@ -278,6 +281,10 @@ struct controllers
         else if (active.first == "quadm" && active.second == "mrac_geometric") {
             _message_::SIMULATOR_INFO("[SIMCTL]: ATTACHING MRAC GEOMETRIC CONTROLLER TO QUADM");
             return std::make_unique< ::_acsl_::_quadm_::_mrac_geometric_::mrac_geometric >(logger, trajectory);
+        }
+        else if (active.first == "quadm" && active.second == "rkhs_mrac_geometric") {
+            _message_::SIMULATOR_INFO("[SIMCTL]: ATTACHING RKHS MRAC GEOMETRIC CONTROLLER TO QUADM");
+            return std::make_unique< ::_acsl_::_quadm_::_rkhs_mrac_geometric_::rkhs_mrac_geometric >(logger, trajectory);
         }
         // [Add more else if branches for other controllers as needed]
         // e.g., x8copter and tailsitter controllers

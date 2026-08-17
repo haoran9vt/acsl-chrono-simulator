@@ -141,7 +141,8 @@ controller:
     mrac_hybrid: false
   quadm:
     mrac_omega: false
-    mrac_geometric: true
+    mrac_geometric: false
+    rkhs_mrac_geometric: true
 
 # ============================================================================
 # SIMULATION Environment Selection
@@ -167,7 +168,7 @@ poly:
   # Set to true to use the segmented minimum-jerk polynomial trajectory module
   enabled: true
   # Type in the trajectory filename that needs to be imported
-  filename: takeoff_1meter
+  filename: bean_trajectory0p6
   # Type in the filetype of the trajectory filename that needs to be imported
   filetype: json
 
