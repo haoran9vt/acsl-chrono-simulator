@@ -102,12 +102,7 @@
         [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
       ]
     },
-    "Gamma_f_translational": {
-      "scaling_coef": 0.0001,
-      "matrix": [
-        [1]
-      ]
-    },
+    "Gamma_alpha_translational": 0.0001,
     "Q_translational": {
       "scaling_coef": 0.5,
       "matrix": [
@@ -270,7 +265,7 @@
     "sigma_x_translational" : 0.5,
     "sigma_r_translational" : 0.5,
     "sigma_Theta_translational" : 0.5,
-    "sigma_f_translational" : 0.5,
+    "sigma_alpha_translational" : 0.5,
 
     "projection_x_max_x_translational" : 0.0225,
     "projection_epsilon_x_translational": 0.04,
@@ -281,8 +276,8 @@
     "projection_x_max_Theta_translational": 0.0225,
     "projection_epsilon_Theta_translational": 0.04,
 
-    "projection_x_max_f_translational": 0.0225,
-    "projection_epsilon_f_translational": 0.04,
+    "projection_x_max_alpha_translational": 0.0225,
+    "projection_epsilon_alpha_translational": 0.04,
     
     "dead_zone_delta_rotational" : 0.5,
     "dead_zone_e0_rotational" : 0.002,
@@ -299,5 +294,26 @@
 
     "projection_x_max_Theta_rotational": 0.0225,
     "projection_epsilon_Theta_rotational": 0.04
+  },
+
+  "RKHS_Function" : {
+    "kernel_type" : "Gaussian",
+    "kernel_l" : 1
+  },
+
+  "RKHS_Center_List" : {
+    "scaling_coef": 1.0,
+    "matrix" :[
+      [0],
+      [0],
+      [0]
+    ]
+  },
+
+  "KK_inv" : {
+    "scaling_coef": 1.0,
+    "matrix" : [
+      [0]
+    ]
   }
 }

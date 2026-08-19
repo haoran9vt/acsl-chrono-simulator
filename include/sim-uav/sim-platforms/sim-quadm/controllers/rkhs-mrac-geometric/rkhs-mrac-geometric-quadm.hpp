@@ -50,7 +50,7 @@ namespace _rkhs_mrac_geometric_
 {
 
 // Define the number of states in the boost array for integration
-constexpr int NSI = 201;
+constexpr int NSI = 300; //282?
 
 // -------------------------------------------------------------------------------------------------------------------- //
 // CONTROLLER STRUCTURES
@@ -67,7 +67,7 @@ struct controller_internal_parameters {
     Eigen::Matrix<double, 6, 6> Gamma_x_tran;       // Adaptive Gains for the translational control
     Eigen::Matrix<double, 3, 3> Gamma_r_tran;       // Adaptive Gains for the translational control
     Eigen::Matrix<double, 30, 30> Gamma_Theta_tran; // Adaptive Gains for the translational control
-    Eigen::Matrix<double, 1, 1> Gamma_f_tran;       // Adaptive Gains for the translational control
+    double Gamma_alpha_tran;                            // Adaptive Gains for the translational control
     Eigen::Matrix<double, 6, 6> Q_tran;          	// Lyapunov weighting matrix
     Eigen::Matrix<double, 6, 6> P_tran;          	// Solution matrix to continuous Lyapunov equation
     Eigen::Matrix<double, 6, 6> A_tran;          	// Translational system matrix
@@ -79,15 +79,19 @@ struct controller_internal_parameters {
     double sigma_x_translational;                	// Translational E-mod gain for x (states)
     double sigma_r_translational;                	// Translational E-mod gain for r (commands)
     double sigma_Theta_translational;            	// Translational E-mod gain for Theta (parameters)
-    double sigma_f_translational;            	    // Translational E-mod gain for f (RKHS)
+    double sigma_alpha_translational;            	    // Translational E-mod gain for f (RKHS)
     double projection_x_max_x_translational;     	// Translational Projection limit for Kx_hat
     double projection_epsilon_x_translational;   	// Translational Projection tolerance for Kx_hat
     double projection_x_max_r_translational;     	// Translational Projection limit for Kr_hat
     double projection_epsilon_r_translational;   	// Translational Projection tolerance for Kr_hat
     double projection_x_max_Theta_translational; 	// Translational Projection limit for Theta_hat
     double projection_epsilon_Theta_translational; 	// Translational Projection tolerance for Theta_hat
-    double projection_x_max_f_translational; 	    // Translational Projection limit for f_hat
-    double projection_epsilon_f_translational; 	    // Translational Projection tolerance for f_hat
+    double projection_x_max_alpha_translational; 	// Translational Projection limit for f_hat
+    double projection_epsilon_alpha_translational; 	// Translational Projection tolerance for f_hat
+    string kernel_type;                             // Kernel type for RKHS function
+    double kernel_l;                                // Kernel width parameter for RKHS function
+    Eigen::Matrix<double, 3, 27> center_list;       // List of centers for RKHS evaluation
+    Eigen::Matrix<double, 81, 81> KK_inv;           // Inverse of the Grammian matrix
     
     Eigen::Matrix<double, 2, 2> A_filter_mu;        // Differentiator A matrix for \mu
     Eigen::Matrix<double, 2, 1> B_filter_mu;        // Differentiator B matrix for \mu
@@ -172,12 +176,13 @@ struct controller_internal_members {
     Eigen::Matrix<double, 81, 1> alpha_hat_tran_dot;			   // Adaptive gain to be integrated
     Eigen::Matrix<double, 27, 1> outer_loop_regressor;			   // Outer loop regressor
 	Eigen::Matrix<double, 30, 1> augmented_outer_loop_regressor;   // Outer loop augmented regressor
-    Eigen::Matrix<double, 81, 3> knl_xi_N_x;                // Outer loop Kernel Evaluation
+    Eigen::Matrix<double, 81, 3> knl_xi_N_x;                       // Outer loop Kernel Evaluation
     Eigen::Matrix<double, 81, 3> KK_inv_knl_xi_N_x;                // Outer loop Grammian inverse and Kernel Evaluation product
     double dead_zone_value_translational;						   // Dead zone val - OL
     bool proj_op_activated_K_hat_x_translational;				   // Projection activation boolean - OL - K_hat_x
 	bool proj_op_activated_K_hat_r_translational;				   // Projection activation boolean - OL - K_hat_r
 	bool proj_op_activated_Theta_hat_translational;				   // Projection activation boolean - OL - Theta_hat
+    bool proj_op_activated_alpha_hat_translational;				   // Projection activation boolean - OL - Theta_hat
     Eigen::Matrix<double, 3, 1> mu_tran_baseline;                  // Baseline control input
     Eigen::Matrix<double, 3, 1> mu_tran_adaptive;                  // Adaptive control input
     Eigen::Matrix<double, 3, 1> mu_tran_I;                         // Virtual control action in the inertial frame

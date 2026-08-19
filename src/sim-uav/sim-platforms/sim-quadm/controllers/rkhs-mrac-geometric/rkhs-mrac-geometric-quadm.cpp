@@ -80,7 +80,7 @@ void rkhs_mrac_geometric::read_params(const std::string& jsonFile)
     cip.Gamma_x_tran = ::_shared_::_deserialize_::jsonToScaledMatrixXd(j["TRANSLATIONAL"]["Gamma_x_translational"], 6, 6);
 	cip.Gamma_r_tran = ::_shared_::_deserialize_::jsonToScaledMatrixXd(j["TRANSLATIONAL"]["Gamma_r_translational"], 3, 3);
 	cip.Gamma_Theta_tran = ::_shared_::_deserialize_::jsonToScaledMatrixXd(j["TRANSLATIONAL"]["Gamma_Theta_translational"], 30, 30);
-    cip.Gamma_f_tran = ::_shared_::_deserialize_::jsonToScaledMatrixXd(j["TRANSLATIONAL"]["Gamma_f_translational"], 1, 1);
+    cip.Gamma_alpha_tran = j["TRANSLATIONAL"]["Gamma_alpha_translational"];
 	cip.Q_tran = ::_shared_::_deserialize_::jsonToScaledMatrixXd(j["TRANSLATIONAL"]["Q_translational"], 6, 6);
 
     // Rotational parameters
@@ -108,15 +108,15 @@ void rkhs_mrac_geometric::read_params(const std::string& jsonFile)
 	cip.sigma_x_translational = j["ROBUSTIFICATION"]["sigma_x_translational"];
 	cip.sigma_r_translational = j["ROBUSTIFICATION"]["sigma_r_translational"];
 	cip.sigma_Theta_translational = j["ROBUSTIFICATION"]["sigma_Theta_translational"];
-    cip.sigma_f_translational = j["ROBUSTIFICATION"]["sigma_f_translational"];
+    cip.sigma_alpha_translational = j["ROBUSTIFICATION"]["sigma_alpha_translational"];
     cip.projection_x_max_x_translational = j["ROBUSTIFICATION"]["projection_x_max_x_translational"];
 	cip.projection_epsilon_x_translational = j["ROBUSTIFICATION"]["projection_epsilon_x_translational"];
     cip.projection_x_max_r_translational = j["ROBUSTIFICATION"]["projection_x_max_r_translational"];
 	cip.projection_epsilon_r_translational = j["ROBUSTIFICATION"]["projection_epsilon_r_translational"];
     cip.projection_x_max_Theta_translational = j["ROBUSTIFICATION"]["projection_x_max_Theta_translational"];
 	cip.projection_epsilon_Theta_translational = j["ROBUSTIFICATION"]["projection_epsilon_Theta_translational"];
-    cip.projection_x_max_f_translational = j["ROBUSTIFICATION"]["projection_x_max_f_translational"];
-	cip.projection_epsilon_f_translational = j["ROBUSTIFICATION"]["projection_epsilon_f_translational"];
+    cip.projection_x_max_alpha_translational = j["ROBUSTIFICATION"]["projection_x_max_alpha_translational"];
+	cip.projection_epsilon_alpha_translational = j["ROBUSTIFICATION"]["projection_epsilon_alpha_translational"];
 
     cip.dead_zone_delta_rotational = j["ROBUSTIFICATION"]["dead_zone_delta_rotational"];
 	cip.dead_zone_e0_rotational = j["ROBUSTIFICATION"]["dead_zone_e0_rotational"];
@@ -129,6 +129,13 @@ void rkhs_mrac_geometric::read_params(const std::string& jsonFile)
 	cip.projection_epsilon_r_rotational = j["ROBUSTIFICATION"]["projection_epsilon_r_rotational"];
     cip.projection_x_max_Theta_rotational = j["ROBUSTIFICATION"]["projection_x_max_Theta_rotational"];
 	cip.projection_epsilon_Theta_rotational = j["ROBUSTIFICATION"]["projection_epsilon_Theta_rotational"];
+
+    cip.kernel_type = j["RKHS_Function"]["kernel_type"];
+    cip.kernel_l = j["RKHS_Function"]["kernel_l"];
+
+    cip.center_list = ::_shared_::_deserialize_::jsonToScaledMatrixXd(j["RKHS_Center_List"], 3, 27);
+
+    cip.KK_inv = ::_shared_::_deserialize_::jsonToScaledMatrixXd(j["KK_inv"], 81, 81);
 
 }
 
@@ -337,6 +344,9 @@ void rkhs_mrac_geometric::compute_translational_control_in_I()
 										  cim.outer_loop_regressor;
 
     // Compute the product of Grammian inverse and kernel evaluation matrix
+    cim.knl_xi_N_x.setZero();
+
+    // Compute the product of Grammian inverse and kernel evaluation matrix
     cim.KK_inv_knl_xi_N_x.setZero();
 
     // Cache the transpose of the tracking error * P * B
@@ -369,12 +379,13 @@ void rkhs_mrac_geometric::compute_translational_control_in_I()
 																				  cip.sigma_Theta_translational,
 																				  csm.Theta_hat_tran);
 
-    cim.f_hat_tran_dot = ::_shared_::_adaptive_laws_::AdaptiveLawDeadZoneEMod(cip.Gamma_f_tran,
+    cim.alpha_hat_tran_dot = ::_shared_::_adaptive_laws_::AdaptiveLawDeadZone(cip.Gamma_alpha_tran,
 																				  cim.dead_zone_value_translational,
 																				  cim.KK_inv_knl_xi_N_x,
-																				  e_transpose_p_b,
-																				  cip.sigma_f_translational,
-																				  csm.alpha_hat_tran);
+																				  e_transpose_p_b.transpose());
+                                                                                  // The transpose here comes from the 
+                                                                                  // RKHS adaptive law in Haoran's dissertation.
+                                                                                  // Namely, equation 5.16c on page 64.
 
     // Projection operator - Ball
     // Projection operator K_hat_x
@@ -421,7 +432,7 @@ void rkhs_mrac_geometric::compute_translational_control_in_I()
     cim.mu_tran_adaptive << csm.K_hat_x_tran.transpose() * cim.x_tran
                           + csm.K_hat_r_tran.transpose() * cim.r_cmd_tran;
                           - csm.Theta_hat_tran.transpose() * cim.augmented_outer_loop_regressor;
-                          - csm.alpha_hat_tran.transpose() * cim.knl_xi_N_x;
+                          - cim.knl_xi_N_x.transpose() * csm.alpha_hat_tran;
 
     // Compute with the dynamic inversion without aerodynamics
     cim.mu_tran_I << cim.mu_tran_baseline + cim.mu_tran_adaptive;
