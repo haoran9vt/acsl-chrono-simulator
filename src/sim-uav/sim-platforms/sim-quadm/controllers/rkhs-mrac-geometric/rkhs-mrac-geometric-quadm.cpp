@@ -344,10 +344,13 @@ void rkhs_mrac_geometric::compute_translational_control_in_I()
 										  cim.outer_loop_regressor;
 
     // Compute the product of Grammian inverse and kernel evaluation matrix
-    cim.knl_xi_N_x.setZero();
+    cim.knl_xi_N_x << knl_Xi_N_evaluation(cip.center_list,
+                                        cim.x_tran_vel, 
+                                        cip.kernel_type, 
+                                        cip.kernel_l);
 
     // Compute the product of Grammian inverse and kernel evaluation matrix
-    cim.KK_inv_knl_xi_N_x.setZero();
+    cim.KK_inv_knl_xi_N_x << cip.KK_inv * cim.knl_xi_N_x;
 
     // Cache the transpose of the tracking error * P * B
 	Eigen::Matrix<double, 1, 3> e_transpose_p_b = cim.e_tran.transpose() * cip.P_tran * cip.B_tran;
@@ -680,6 +683,44 @@ void rkhs_mrac_geometric::compute_normalized_thrusts()
               << std::endl;
 }
 
+// Function that calculate operator kernel function for the RKHS adaptive law
+Eigen::MatrixXd rkhs_mrac_geometric::kernel_function(const Eigen::VectorXd& basis_center,
+                                                    const Eigen::VectorXd& state, 
+                                                    const std::string& kernel_type, 
+                                                    const double kernel_l)
+                                                    // Note that state must be in [X_dot,Y_dot,Z_dot] format
+{
+    double dist = (basis_center-state).norm();
+
+    if (kernel_type=="GAUSSIAN") {
+        return Eigen::MatrixXd::Identity(3, 3)*std::exp(-1/(2*std::pow(kernel_l,2))*std::pow(dist,2));
+    }   
+    else {
+        _message_::SIMULATOR_ERROR("[SIMCTL]: KERNEL TYPE NOT SUPPORTED. SUPPORTED TYPE IS 'GAUSSIAN'.");
+        return Eigen::MatrixXd::Identity(3, 3);
+    }          
+}
+
+// Function that evaluate kernel matrix for the RKHS adaptive law
+Eigen::MatrixXd rkhs_mrac_geometric::knl_Xi_N_evaluation(const Eigen::MatrixXd& center_list,
+                                                    const Eigen::VectorXd& state, 
+                                                    const std::string& kernel_type, 
+                                                    const double kernel_l)
+                                                    // Note that state must be in [X_dot,Y_dot,Z_dot] format
+{
+    Eigen::MatrixXd knl_Xi_N_Result(81,3);
+
+    for (int i = 0; i < 27; i++) {
+        Eigen::VectorXd currnet_center = center_list.col(i);
+        knl_Xi_N_Result.block<3,3>(i*3,0) = kernel_function(currnet_center,
+                                                            state, 
+                                                            kernel_type, 
+                                                            kernel_l);
+    }
+
+    return knl_Xi_N_Result;
+}
+
 // Function that is called in sim-bridge.cpp
 void rkhs_mrac_geometric::run(const double time_step_rk4_) {
 
@@ -850,9 +891,11 @@ void rkhs_mrac_geometric::ConfigureHeaders()
         ::_shared_::_serialize_::generateMatrixHeaders(oss, "K_hat_x_translational", csm.K_hat_x_tran, "[-]");
         ::_shared_::_serialize_::generateMatrixHeaders(oss, "K_hat_r_translational", csm.K_hat_r_tran, "[-]");
         ::_shared_::_serialize_::generateMatrixHeaders(oss, "Theta_hat_translational", csm.Theta_hat_tran, "[-]");
+        ::_shared_::_serialize_::generateMatrixHeaders(oss, "alpha_hat_translational", csm.alpha_hat_tran, "[-]");
         ::_shared_::_serialize_::generateMatrixHeaders(oss, "K_hat_x_rotational", csm.K_hat_x_rot, "[-]");
         ::_shared_::_serialize_::generateMatrixHeaders(oss, "K_hat_r_rotational", csm.K_hat_r_rot, "[-]");
         ::_shared_::_serialize_::generateMatrixHeaders(oss, "Theta_hat_rotational", csm.Theta_hat_rot, "[-]");    
+        
 
 
     try {
@@ -992,6 +1035,7 @@ void rkhs_mrac_geometric::LogData()
         ::_shared_::_serialize_::appendEigenData(oss, csm.K_hat_x_tran);
         ::_shared_::_serialize_::appendEigenData(oss, csm.K_hat_r_tran);
         ::_shared_::_serialize_::appendEigenData(oss, csm.Theta_hat_tran);
+        ::_shared_::_serialize_::appendEigenData(oss, csm.alpha_hat_tran);
         ::_shared_::_serialize_::appendEigenData(oss, csm.K_hat_x_rot);
         ::_shared_::_serialize_::appendEigenData(oss, csm.K_hat_r_rot);
         ::_shared_::_serialize_::appendEigenData(oss, csm.Theta_hat_rot);

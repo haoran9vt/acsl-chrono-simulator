@@ -88,7 +88,7 @@ struct controller_internal_parameters {
     double projection_epsilon_Theta_translational; 	// Translational Projection tolerance for Theta_hat
     double projection_x_max_alpha_translational; 	// Translational Projection limit for f_hat
     double projection_epsilon_alpha_translational; 	// Translational Projection tolerance for f_hat
-    string kernel_type;                             // Kernel type for RKHS function
+    std::string kernel_type;                             // Kernel type for RKHS function
     double kernel_l;                                // Kernel width parameter for RKHS function
     Eigen::Matrix<double, 3, 27> center_list;       // List of centers for RKHS evaluation
     Eigen::Matrix<double, 81, 81> KK_inv;           // Inverse of the Grammian matrix
@@ -385,6 +385,16 @@ private:
 
     // Assign the values from rk4 to controller internal members
     void assign_from_rk4();
+
+    Eigen::MatrixXd kernel_function(const Eigen::VectorXd& basis_center,
+                                const Eigen::VectorXd& state, 
+                                const std::string& kernel_type, 
+                                const double kernel_l);
+
+    Eigen::MatrixXd knl_Xi_N_evaluation(const Eigen::MatrixXd& center_list,
+                                        const Eigen::VectorXd& state, 
+                                        const std::string& kernel_type, 
+                                        const double kernel_l);
 
 };
 
