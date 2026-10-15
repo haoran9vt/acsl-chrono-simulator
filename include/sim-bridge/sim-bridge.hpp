@@ -104,6 +104,9 @@ public:
         // Load config, select platform, and attach it to the physics system
         ConfigureSimulatorFromConfig();
 
+        // Initialize the Chrono FSI environment
+        m_sys.SetupFSISystem();
+
         // Initialize the Chrono visualization environment
         m_sys.SetupVisualizationSystem();
 
@@ -216,6 +219,7 @@ private:
     bool enable_wrapper;                // <- Use wrapper mode for batch runs.
     bool treat_as_rigid_body;           // <- Use the u1-u4 control inputs &
                                         //    treat the uav as a rigid body
+    bool enable_FSI;                    // <- Check if FSI is enabled.
     
     // ------------------------------------------------------------------------
     // Struct to store the motor disturbance parameters

@@ -568,9 +568,9 @@ void simbridge::UpdateVisualizationSystemIrrlicht()
 void simbridge::UpdateVisualizationSystemVulkan()
 {
     // ------------------------------------------------------------------------
-    // STEP 0 – Check if visualization is enabled for this simulator run.
+    // STEP 0 – Check if visualization is enabled for this simulator run. (OG branch)
     // ------------------------------------------------------------------------
-    if (this->m_sys.GetVisConfig().enable_vis && this->m_sys.GetVisionSystemVsg().Run())
+    if (!(this->m_sys.GetPhyConfig().ActivateFSI) && this->m_sys.GetVisConfig().enable_vis && this->m_sys.GetVisionSystemVsg().Run())
     {
         // ------------------------------------------------------------------------
         // STEP 1 – Throttle rendering to user defined FPS, independent of the 200Hz physics rate.
@@ -660,6 +660,41 @@ void simbridge::UpdateVisualizationSystemVulkan()
         // STEP 8 – Render the scene; for this simulation step.
         // --------------------------------------------------------------------
         this->m_sys.GetVisionSystemVsg().Render();
+    }
+    // ------------------------------------------------------------------------
+    // STEP 0 – Check if FSI visualization is enabled for this simulator run. (Fluid Branch)
+    // ------------------------------------------------------------------------
+    else if ((this->m_sys.GetPhyConfig().ActivateFSI) && this->m_sys.GetVisConfig().enable_vis && this->m_sys.GetVisionSystemFsi())
+    {
+        // ------------------------------------------------------------------------
+        // STEP 1 – Throttle rendering to user defined FPS, independent of the 200Hz physics rate.
+        // ------------------------------------------------------------------------
+        this->m_render_period = 1.0 / this->m_sys.GetVisConfig().target_frame_rate;
+        double current_time = this->m_sys.GetPhysicsSystem().GetChTime();
+        if (current_time - this->m_last_render_time < this->m_render_period)
+        {
+            return;  // Not time to render yet — skip this call, physics still steps normally elsewhere
+        }
+        this->m_last_render_time = current_time;
+
+        // --------------------------------------------------------------------
+        // STEP 2-6 – FSI visualization unsupported
+        // --------------------------------------------------------------------
+
+        // --------------------------------------------------------------------
+        // STEP 7 – If the moving camera is enabled, update its position and target for real-time following.
+        // --------------------------------------------------------------------
+        if (!this->m_sys.GetVisConfig().enable_static_cam)
+        {
+            this->m_sys.GetCamera()->Update(this->m_sys.GetPhyConfig().StepSize);
+            this->m_sys.GetVisionSystemFsi()->UpdateCamera(this->m_sys.GetCamera()->GetCameraPos(),
+                                                           this->m_sys.GetCamera()->GetTargetPos());
+        }
+
+        // --------------------------------------------------------------------
+        // STEP 8 – Render the scene; for this simulation step.
+        // --------------------------------------------------------------------
+        this->m_sys.GetVisionSystemFsi()->Render();
     }
 }
 
@@ -871,7 +906,13 @@ void simbridge::UpdatePhysicsSystem()
     // ------------------------------------------------------------------------
     // STEP 1 – Advance Chrono physics by one step using config step size.
     // ------------------------------------------------------------------------
-    this->m_sys.GetPhysicsSystem().DoStepDynamics(this->m_sys.GetPhyConfig().StepSize);
+    if (this->m_sys.GetPhyConfig().ActivateFSI){
+        m_sys.GetFSISystem().DoStepDynamics(this->m_sys.GetPhyConfig().StepSize);
+    }
+    else{
+        this->m_sys.GetPhysicsSystem().DoStepDynamics(this->m_sys.GetPhyConfig().StepSize);
+    }
+    
 
     // ------------------------------------------------------------------------
     // STEP 2 – Spin in place to maintain soft real-time pacing for this 

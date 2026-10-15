@@ -61,6 +61,27 @@
 #include "chrono/utils/ChUtils.h"
 #include "chrono/utils/ChUtilsChaseCamera.h"
 
+// Chrono FSI SPH includes
+#include <cassert>
+#include <cstdlib>
+#include <cmath>
+
+#include "chrono/core/ChGlobal.h"
+#include "chrono/core/ChTimer.h"
+#include "chrono/physics/ChLinkLock.h"
+#include "chrono/assets/ChVisualShapeBox.h"
+#include "chrono/utils/ChUtilsGenerators.h"
+#include "chrono/utils/ChUtilsGeometry.h"
+#include "chrono/functions/ChFunctionBase.h" 
+
+#include "chrono_fsi/sph/ChFsiSystemSPH.h"
+#include "chrono_fsi/sph/visualization/ChFsiVisualization.h"
+
+#include "chrono_fsi/sph/visualization/ChFsiVisualizationVSG.h"
+#include "chrono_vsg/ChVisualSystemVSG.h"
+#include "chrono_vsg/ChGuiComponentVSG.h"
+#include <vsgImGui/imgui.h>
+
 namespace _acsl_
 {
 
@@ -80,6 +101,7 @@ struct physicsonfig {
     double ContactBreakingThreshold;
     double StepSize;
     bool ThrottleRealTime;
+    bool ActivateFSI;               // Fluid stuffs starts here
 };
 
 // Structure for storing the visualization configurations
@@ -104,6 +126,8 @@ struct visionconfig {
     bool enable_vulkan;
     bool enable_irrlicht;
     double target_frame_rate;
+    bool show_fluid;            // Fluid options
+    bool show_bce;
 };
 
 // ------------------------------------------------------------------------
@@ -150,6 +174,12 @@ public:
     void SetupPhysicsSystem();
 
     // ------------------------------------------------------------------------
+    // Sets up the Chrono physics system based on loaded config parameters.
+    // Example: gravity, solver type, solver iterations, collision settings.
+    // ------------------------------------------------------------------------
+    void SetupFSISystem();
+
+    // ------------------------------------------------------------------------
     // Sets up the Irrlicht visualization system for rendering the simulation
     // based on loaded vision configuration (window size, camera settings, etc.).
     // ------------------------------------------------------------------------
@@ -162,6 +192,16 @@ public:
     chrono::ChSystemNSC& GetPhysicsSystem() { return m_physics; }
 
     // ------------------------------------------------------------------------
+    // Accessor: Returns a reference to the underlying Chrono SPH system
+    // ------------------------------------------------------------------------
+    chrono::fsi::ChFluidSystemSPH& GetSPHSystem() { return m_SPH; }
+
+    // ------------------------------------------------------------------------
+    // Accessor: Returns a reference to the underlying Chrono FSI system
+    // ------------------------------------------------------------------------
+    chrono::fsi::ChFsiSystemSPH& GetFSISystem() { return m_FSI; }
+
+    // ------------------------------------------------------------------------
     // Accessor: Returns a reference to the underlying Irrlicht visualization
     // system for customizing the viewing environment.
     // ------------------------------------------------------------------------
@@ -172,6 +212,12 @@ public:
     // system for customizing the viewing environment.
     // ------------------------------------------------------------------------
     chrono::vsg3d::ChVisualSystemVSG& GetVisionSystemVsg() { return m_vsg; }
+
+    // ------------------------------------------------------------------------
+    // Accessor: Returns a reference to the underlying FSI specific Vulkan 
+    // visualization system for customizing the viewing environment.
+    // ------------------------------------------------------------------------
+    std::shared_ptr<chrono::fsi::ChFsiVisualizationVSG> GetVisionSystemFsi() const { return m_visFSI; }
 
     // ------------------------------------------------------------------------
     // Accessor: Returns the active visualization backend
@@ -208,6 +254,18 @@ private:
     chrono::ChSystemNSC m_physics;
 
     // ------------------------------------------------------------------------
+    // The Chrono fluid simulation system (FSI-SPH based).
+    // ------------------------------------------------------------------------
+    chrono::fsi::ChFluidSystemSPH m_SPH;
+    chrono::fsi::ChFsiSystemSPH   m_FSI{m_physics, m_SPH};
+
+    // ------------------------------------------------------------------------
+    // The Chrono fluid and sph parameters (FSI specific structs).
+    // ------------------------------------------------------------------------
+    chrono::fsi::ChFluidSystemSPH::FluidProperties fluid_props;
+    chrono::fsi::ChFluidSystemSPH::SPHParameters sph_params;
+
+    // ------------------------------------------------------------------------
     // Tis variable tracks which backend is active (Default: Vulkan)
     // ------------------------------------------------------------------------
     ::_acsl_::_system_::RenderBackend m_active_backend = ::_acsl_::_system_::RenderBackend::VULKAN;
@@ -221,6 +279,11 @@ private:
     // The Vulkan-based visualization system for rendering the simulation.
     // ------------------------------------------------------------------------
     chrono::vsg3d::ChVisualSystemVSG m_vsg;
+
+    // ------------------------------------------------------------------------
+    // Replacement Vulkan visualization system specifically for fluid cases.
+    // ------------------------------------------------------------------------
+    std::shared_ptr<chrono::fsi::ChFsiVisualizationVSG> m_visFSI;
 
     // ------------------------------------------------------------------------
     // The Irrlicht-based system camera for viewing the simulation.

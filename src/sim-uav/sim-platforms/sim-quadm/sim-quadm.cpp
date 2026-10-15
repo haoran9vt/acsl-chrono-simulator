@@ -46,6 +46,32 @@ namespace _quadm_
 // Compulsary derived class function that initiates the chassis with all the necessary parameters
 void simquadm::ConfigureQUADMChassis()
 {
+    // Water tank parameters
+    double Tank_x=0.1;
+    double Tank_y=0.1;
+    double Tank_z=0.05;
+    double Tank_xi=(0.1-0.003);
+    double Tank_yi=(0.1-0.003); 
+    double Tank_zi=(0.05-0.003);
+    double Tank_rho=1.19*1000;
+
+    double Tank_M=Tank_rho*(Tank_x*Tank_y*Tank_z-Tank_xi*Tank_yi*Tank_zi);
+
+    double Tank_Ixx=Tank_rho/12*(Tank_x*Tank_y*Tank_z*(pow(Tank_y,2)+pow(Tank_z,2))-Tank_xi*Tank_yi*Tank_zi*(pow(Tank_yi,2)+pow(Tank_zi,2)));
+    double Tank_Iyy=Tank_rho/12*(Tank_x*Tank_y*Tank_z*(pow(Tank_x,2)+pow(Tank_z,2))-Tank_xi*Tank_yi*Tank_zi*(pow(Tank_xi,2)+pow(Tank_zi,2)));
+    double Tank_Izz=Tank_rho/12*(Tank_x*Tank_y*Tank_z*(pow(Tank_y,2)+pow(Tank_x,2))-Tank_xi*Tank_yi*Tank_zi*(pow(Tank_yi,2)+pow(Tank_xi,2)));
+
+    double dx=0, dy=0, dz=-0.1;
+
+    chrono::ChMatrix33<> Tank_I;
+    chrono::ChVector3d   Tank_d(dx, dy, dz);
+    Tank_I.setZero();
+    Tank_I.diagonal() << Tank_Ixx, Tank_Iyy, Tank_Izz;
+
+
+    chrono::ChMatrix33<> Tank_I_O;
+    chrono::ChInertiaUtils::TranslateInertia(Tank_I, Tank_d, Tank_M, Tank_I_O);
+
     // Create the struct for processing the uav chassis properties
     _uav_::chassisstruct chassis_properties;
 
@@ -56,18 +82,18 @@ void simquadm::ConfigureQUADMChassis()
     chassis_properties.init_rot = chrono::ChQuaternion<>(1,0,0,0);
     
     // Configure the mass of the chassis ------------------------------------------------------------------------------
-    chassis_properties.mass = 1.27359544600205;
+    chassis_properties.mass = 1.27359544600205+Tank_M;
 
     // Configure the Chassis Inertia vectors --------------------------------------------------------------------------
-    chassis_properties.InertiaXX = chrono::ChVector3d(0.00654969371759306,0.00621558396568854,0.0102525161842417);
-    chassis_properties.InertiaXY = chrono::ChVector3d(-1.21105971588835e-06,-9.27032947877171e-06,-2.16784001716213e-06);
+    chassis_properties.InertiaXX = chrono::ChVector3d(0.00654969371759306+Tank_I_O(1,1),0.00621558396568854+Tank_I_O(2,2),0.0102525161842417+Tank_I_O(3,3));
+    chassis_properties.InertiaXY = chrono::ChVector3d(-1.21105971588835e-06+Tank_I_O(2,1),-9.27032947877171e-06+Tank_I_O(3,1),-2.16784001716213e-06+Tank_I_O(3,2));
 
     // Configure the chassis COM along with it's auxilliary frame at the COM ------------------------------------------
     // This is the most important as we will consider this to be the pixhawk in our subsequent calculations
     // chassis_properties.COM  = chrono::ChFramed(chrono::ChVector3d(-0.0163151142227842,0.0102080920244478,0.017016814810521),
     //                                            chrono::ChQuaternion<>(1,0,0,0)); 
 
-    chassis_properties.COM  = chrono::ChFramed(chrono::ChVector3d(0.000979643148821178,0.000801422765113241,0.000453896450721421),
+    chassis_properties.COM  = chrono::ChFramed(chrono::ChVector3d(0.000979643148821178,0.000801422765113241,0.000453896450721421-0.011*Tank_M/chassis_properties.mass),
                                                chrono::ChQuaternion<>(1,0,0,0)); 
 
     // Configure the name of the visualization obj file ---------------------------------------------------------------

@@ -109,6 +109,87 @@ void simsystem::ReadPhysicsConfigFile()
     phyconfig.DefaultSuggestedEnvelope = static_cast<double>(config_file["collision"]["DefaultSuggestedEnvelope"].as_float());
     phyconfig.DefaultSuggestedMargin   = static_cast<double>(config_file["collision"]["DefaultSuggestedMargin"].as_float());
     phyconfig.ContactBreakingThreshold = static_cast<double>(config_file["collision"]["ContactBreakingThreshold"].as_float());
+
+    // ------------------------------------------------------------------------
+    // STEP 7 – Extract fluid (FSI-SPH) system parameters
+    // ------------------------------------------------------------------------
+    phyconfig.ActivateFSI                           = config_file["fluid"]["ActivateFSI"].as_bool();
+
+    // Assign fluid parameters if FSI is active
+    if (phyconfig.ActivateFSI){  
+        // Assign fluid properties 
+        fluid_props.density                = static_cast<double>(config_file["fluid"]["density"].as_float());
+        fluid_props.viscosity              = static_cast<double>(config_file["fluid"]["viscosity"].as_float());
+
+        // Assign SPH parameters (normal assignment)
+        sph_params.num_bce_layers                         = config_file["fluid"]["num_bce_layers"].as_int(); 
+        sph_params.initial_spacing                        = static_cast<double>(config_file["fluid"]["initial_spacing"].as_float());
+        sph_params.d0_multiplier                          = static_cast<double>(config_file["fluid"]["d0_multiplier"].as_float());
+        sph_params.max_velocity                           = static_cast<double>(config_file["fluid"]["max_velocity"].as_float());
+        sph_params.xsph_coefficient                       = static_cast<double>(config_file["fluid"]["xsph_coefficient"].as_float());
+        sph_params.shifting_coefficient                   = static_cast<double>(config_file["fluid"]["shifting_coefficient"].as_float());
+        sph_params.artificial_viscosity                   = static_cast<double>(config_file["fluid"]["artificial_viscosity"].as_float());
+        sph_params.consistent_gradient_discretization     = config_file["fluid"]["consistent_gradient_discretization"].as_bool(); 
+        sph_params.consistent_laplacian_discretization    = config_file["fluid"]["consistent_laplacian_discretization"].as_bool(); 
+        sph_params.num_proximity_search_steps             = config_file["fluid"]["num_proximity_search_steps"].as_int(); 
+        sph_params.use_delta_sph                          = config_file["fluid"]["use_delta_sph"].as_bool(); 
+        sph_params.delta_sph_coefficient                  = static_cast<double>(config_file["fluid"]["delta_sph_coefficient"].as_float());
+
+        // Assign SPH parameters (string to enum class)
+        std::string eos_type                        = config_file["fluid"]["eos_type"].as_str(); 
+        std::string sph_method                      = config_file["fluid"]["sph_method"].as_str(); 
+        std::string boundary_type                   = config_file["fluid"]["boundary_type"].as_str(); 
+        std::string viscosity_type                  = config_file["fluid"]["viscosity_type"].as_str(); 
+
+        // EOS type
+            if (eos_type == "TAIT") {
+                sph_params.eos_type = chrono::fsi::EosType::TAIT;
+            }
+            else if (eos_type == "ISOTHERMAL") {
+                sph_params.eos_type = chrono::fsi::EosType::ISOTHERMAL;
+            }
+            else {
+                _message_::SIMULATOR_ERROR("[SIMSYS]: INCORRECT OR UNSUPPORTED EOS TYPE. SUPPORTED TYPES ARE 'TAIT' AND 'ISOTHERMAL'.");
+            }
+
+        // SPH method
+            if (sph_method == "WCSPH") {
+                sph_params.sph_method = chrono::fsi::SPHMethod::WCSPH;
+            }
+            else if (sph_method == "I2SPH") {
+                sph_params.sph_method = chrono::fsi::SPHMethod::I2SPH;
+            }
+            else {
+                _message_::SIMULATOR_ERROR("[SIMSYS]: INCORRECT OR UNSUPPORTED SPH METHOD. SUPPORTED TYPES ARE 'WCSPH' AND 'I2SPH'.");
+            }
+        // Boundary_type
+            if (boundary_type == "ADAMI") {
+                sph_params.boundary_type = chrono::fsi::BoundaryType::ADAMI;
+            }
+            else if (boundary_type == "HOLMES") {
+                sph_params.boundary_type = chrono::fsi::BoundaryType::HOLMES;
+            }
+            else {
+                _message_::SIMULATOR_ERROR("[SIMSYS]: INCORRECT OR UNSUPPORTED BOUNDARY TYPE. SUPPORTED TYPES ARE 'ADAMI' AND 'HOLMES'.");
+            }
+
+        // Viscosity_type
+            if (viscosity_type == "LAMINAR") {
+                sph_params.viscosity_type = chrono::fsi::ViscosityType::LAMINAR;
+            }
+            else if (viscosity_type == "ARTIFICIAL_UNILATERAL") {
+                sph_params.viscosity_type = chrono::fsi::ViscosityType::ARTIFICIAL_UNILATERAL;
+            }
+            else if (viscosity_type == "ARTIFICIAL_BILATERAL") {
+                sph_params.viscosity_type = chrono::fsi::ViscosityType::ARTIFICIAL_BILATERAL;
+            }
+            else {
+                _message_::SIMULATOR_ERROR("[SIMSYS]: INCORRECT OR UNSUPPORTED VISCOSITY TYPE. SUPPORTED TYPES ARE 'LAMINAR', 'ARTIFICIAL_UNILATERAL', AND 'ARTIFICIAL_BILATERAL'.");
+            }
+    }
+    else{
+        // Do nothing here since no FSI activation.
+    }
 }
 
 
@@ -201,6 +282,13 @@ void simsystem::ReadVisionConfigFile()
     visconfig.width  = static_cast<uint>(config_file["window"]["width"].as_int());   // Window width in pixels
     visconfig.height = static_cast<uint>(config_file["window"]["height"].as_int());  // Window height in pixels
     visconfig.title  = config_file["window"]["title"].as_str();                      // Window title text
+
+    // ------------------------------------------------------------------------
+    // STEP 8 – Extract visualization "fluid" options
+    //   These control the overall visualization overlays.
+    // ------------------------------------------------------------------------
+    visconfig.show_fluid             = config_file["fluid"]["show_fluid"].as_bool(); 
+    visconfig.show_bce               = config_file["fluid"]["show_bce"].as_bool();
 }
 
 
@@ -326,6 +414,128 @@ void simsystem::SetupPhysicsSystem()
     _message_::SIMULATOR_INFO("[SIMSYS]:  - COLLISION [DefaultSuggestedEnvelope]: ", phyconfig.DefaultSuggestedEnvelope);
     _message_::SIMULATOR_INFO("[SIMSYS]:  - COLLISION [DefaultSuggestedMargin]: ", phyconfig.DefaultSuggestedMargin);
     _message_::SIMULATOR_INFO("[SIMSYS]:  - COLLISION [ContactBreakingThreshold]: ", phyconfig.ContactBreakingThreshold);
+
+    if (phyconfig.ActivateFSI)
+    {
+        _message_::SIMULATOR_INFO("[SIMSYS]:  - FLUID SYSTEM ACTIVE");
+    }
+    else 
+    {
+        _message_::SIMULATOR_INFO("[SIMSYS]:  - FLUID SYSTEM INACTIVE");
+    }
+}
+
+// =====================================================================================================================
+// SetupFSISystem()
+//
+// Purpose:
+//   Setup the water tank and its content (water).
+//
+//   Key tasks:
+//     1. Create the BCE boundary for the water tank that is linked to the drone chassis.
+//     2. Create the water that sit in the tank.
+//     3. Initialize the FSI simulation.
+//
+// Preconditions:
+//   - This must be called after adding simulation bodies/links in the sim-bridge.cpp.
+//
+// =====================================================================================================================
+void simsystem::SetupFSISystem(){
+    if (phyconfig.ActivateFSI)
+    {
+    // ------------------------------------------------------------------------
+    // STEP 1 – Set fluid system model parameters
+    // ------------------------------------------------------------------------
+        // Setting up fluid system
+        m_FSI.SetVerbose(true);
+
+        m_FSI.SetGravitationalAcceleration(
+            _shared_::_transformations_::GetChronoPosFromNED(chrono::ChVector3d(0, 0, 9.80665)) 
+        );
+
+        m_FSI.SetStepSizeCFD(phyconfig.StepSize);
+        m_FSI.SetStepsizeMBD(phyconfig.StepSize);
+
+        // Setting up fluid properties
+        m_SPH.SetCfdSPH(fluid_props);
+
+        // Setting up SPH parameters
+        m_SPH.SetSPHParameters(sph_params);
+
+    // ------------------------------------------------------------------------
+    // STEP 2 – Setup Computation Domain
+    // ------------------------------------------------------------------------
+        const double margin = 5;
+        m_SPH.SetBoundaries(chrono::ChVector3d(-margin, -margin, -margin),
+                        chrono::ChVector3d(margin, margin, margin));
+
+    // ------------------------------------------------------------------------
+    // STEP 3 – Setup water
+    // ------------------------------------------------------------------------
+        // Tank size and offset in defined NED frame
+        const chrono::ChVector3d tank_size_NED(0.1, 0.1, 0.05);
+        const chrono::ChVector3d tank_offset_NED(0, 0, 0.1);
+
+        // Modify the tank dimension into chrono axis frame
+        const chrono::ChVector3d tank_size_temp(_shared_::_transformations_::GetChronoPosFromNED(tank_size_NED)) ;
+        const chrono::ChVector3d tank_size(std::abs(tank_size_temp.x()), std::abs(tank_size_temp.y()), std::abs(tank_size_temp.z())) ;
+        const chrono::ChVector3d tank_offset(_shared_::_transformations_::GetChronoPosFromNED(tank_offset_NED)) ;
+        const chrono::ChVector3d tank_pos(tank_offset);
+
+        // Water block parameter in NED
+        const double spacing = sph_params.initial_spacing;
+        const double fluid_height = 0.5 * tank_size_NED.z();
+        const double floor_gap = 0.006;
+        const double floor_d = tank_offset_NED.z() + 0.5 * tank_size_NED.z();
+
+        const double Lx = 0.09, Ly = 0.09;   // nominal fluid footprint [m]
+        int nx = (int)std::round(Lx / spacing);
+        int ny = (int)std::round(Ly / spacing);
+        int nz = (int)std::round(fluid_height / spacing);
+
+        double n0 = tank_offset_NED.x() - 0.5 * (nx - 1) * spacing;
+        double e0 = tank_offset_NED.y() - 0.5 * (ny - 1) * spacing;
+        double d0 = floor_d - floor_gap - 0.5 * spacing;
+
+        // Fluid block with an explicit particle count, so the water mass barely depends on spacing
+
+        // Drone pose at t = 0 (local Chrono-axis coords -> world)
+        const chrono::ChFrame<> drone_frame = this->m_physics.SearchBody("chassis")->GetFrameRefToAbs();
+
+        for (int i = 0; i < nx; i++)
+            for (int j = 0; j < ny; j++)
+                for (int k = 0; k < nz; k++){
+                    chrono::ChVector3d p_ned(n0 + i * spacing,
+                                             e0 + j * spacing,
+                                             d0 - k * spacing);                         // stack upward = decreasing D
+                    chrono::ChVector3d p_local = _shared_::_transformations_::GetChronoPosFromNED(p_ned);
+                    chrono::ChVector3d p_world = drone_frame.TransformPointLocalToParent(p_local);
+                    m_SPH.AddSPHParticle(p_world, m_SPH.GetDensity(), 0.0, m_SPH.GetViscosity());
+                }
+
+
+    // ------------------------------------------------------------------------
+    // STEP 4 – Setup water tank
+    // ------------------------------------------------------------------------
+        auto chassis_body = this->m_physics.SearchBody("chassis");
+        std::cout << "chassis_body = " << chassis_body.get() << std::endl;
+        if (!chassis_body) {
+            std::cerr << "ERROR: chassis not found in m_physics at BCE setup" << std::endl;
+            std::abort();
+        }
+        size_t tank_index = m_FSI.AddFsiBody(this->m_physics.SearchBody("chassis"));
+        std::vector<chrono::ChVector3d> bce_points;
+        m_SPH.CreateBCE_BoxExterior(tank_size, bce_points);
+        m_SPH.AddPointsBCE(this->m_physics.SearchBody("chassis"), bce_points, chrono::ChFrame<>(tank_offset, chrono::QUNIT), true);
+
+    // ------------------------------------------------------------------------
+    // STEP 5 – Initialize FSI system
+    // ------------------------------------------------------------------------
+        m_FSI.Initialize();
+    }
+    else {
+        // Do nothing since activating fluid system is redundant here. 
+    }
 }
 
 // =====================================================================================================================
@@ -375,7 +585,8 @@ void simsystem::SetupVisualizationSystem()
         // ------------------------------------------------------------------------
         // STEP 1.1 – Check which visualization render engine is picked
         //          - If none are picked-default to irrlicht
-        //          - If both are picked-throw an error 
+        //          - If both are picked-default to irrlicht
+        //          - If irrlicht is picked and FSI is active-default to vulkan
         // ------------------------------------------------------------------------
         if (visconfig.enable_vulkan && visconfig.enable_irrlicht) {
             _message_::SIMULATOR_WARNING("[SYMSYS]: BOTH VULKAN AND IRRLICHT ARE SET TO TRUE, DEFAULTING TO IRRLICHT");
@@ -386,13 +597,19 @@ void simsystem::SetupVisualizationSystem()
             backend = RenderBackend::VULKAN;
         }
         else if (!visconfig.enable_vulkan && visconfig.enable_irrlicht) {
-            _message_::SIMULATOR_INFO("[SYMSYS]: IRRLICHT RENDER ENGINE ACTIVE. ATTACHING TO SYSTEM");
+            if (visconfig.enable_irrlicht && phyconfig.ActivateFSI) {
+                _message_::SIMULATOR_WARNING("[SYMSYS]: FSI ONLY SUPPORT OPENGL OR VULKAN, DEFAULTING TO VULKAN");
+                backend = RenderBackend::VULKAN;
+            }
+            else{
+                _message_::SIMULATOR_INFO("[SYMSYS]: IRRLICHT RENDER ENGINE ACTIVE. ATTACHING TO SYSTEM");
             backend = RenderBackend::IRRLICHT;
+            }
         }
         else if (!visconfig.enable_vulkan && !visconfig.enable_irrlicht) {
             _message_::SIMULATOR_WARNING("[SYMSYS]: BOTH VULKAN AND IRRLICHT ARE SET TO FALSE, DEFAULTING TO IRRLICHT");
             backend = RenderBackend::IRRLICHT;
-        } 
+        }
         else {
             return;
         }
@@ -404,19 +621,36 @@ void simsystem::SetupVisualizationSystem()
     // STEPS 1.5 - 3 depend on the RenderBackend
     // ------------------------------------------------------------------------
     if (backend == ::_acsl_::_system_::RenderBackend::VULKAN) {
-        // ------------------------------------------------------------------------
-        // STEP 2 – Main window setup: size, title, and initialization
-        // ------------------------------------------------------------------------
-        m_vsg.SetWindowSize(visconfig.width, visconfig.height); // Set window size (pixels)
-        m_vsg.SetWindowTitle(visconfig.title);                  // Set window title string
-        
-        // ------------------------------------------------------------------------
-        // STEP 3 – Scene elements: add logo, skybox, and lights to environment
-        // ------------------------------------------------------------------------
-        m_vsg.SetLogoVisible(true);    // Overlay Project Chrono logo (optional branding)
-        m_vsg.SetUseSkyBox(true);      // Add skybox textures for realistic environment
-        m_vsg.SetLightDirection(chrono::CH_PI / 4.0, chrono::CH_PI / 4.0);  // azimuth/elevation approximating the 4-corner setup
-        m_vsg.SetLightIntensity(1.0f);  // Light intensity. You can change it. It's hardcoded with the best setting so far - Xavi  
+        if (!phyconfig.ActivateFSI){
+            // ------------------------------------------------------------------------
+            // STEP 2 – Main window setup: size, title, and initialization
+            // ------------------------------------------------------------------------
+            m_vsg.SetWindowSize(visconfig.width, visconfig.height); // Set window size (pixels)
+            m_vsg.SetWindowTitle(visconfig.title);                  // Set window title string
+            
+            // ------------------------------------------------------------------------
+            // STEP 3 – Scene elements: add logo, skybox, and lights to environment
+            // ------------------------------------------------------------------------
+            m_vsg.SetLogoVisible(true);    // Overlay Project Chrono logo (optional branding)
+            m_vsg.SetUseSkyBox(true);      // Add skybox textures for realistic environment
+            m_vsg.SetLightDirection(chrono::CH_PI / 4.0, chrono::CH_PI / 4.0);  // azimuth/elevation approximating the 4-corner setup
+            m_vsg.SetLightIntensity(1.0f);  // Light intensity. You can change it. It's hardcoded with the best setting so far - Xavi 
+        }
+        else{
+            // ------------------------------------------------------------------------
+            // STEP 2 – Main window setup: size, title, and initialization
+            // ------------------------------------------------------------------------
+            m_visFSI = chrono_types::make_shared<chrono::fsi::ChFsiVisualizationVSG>(&m_FSI);
+            m_visFSI->SetTitle(visconfig.title);
+            m_visFSI->SetSize(visconfig.width, visconfig.height);
+
+            // ------------------------------------------------------------------------
+            // STEP 3 – Scene elements: add skybox, and lights to environment
+            // ------------------------------------------------------------------------
+            m_visFSI->SetUseSkyBox(true);                                 // = SetUseSkyBox
+            m_visFSI->SetLightDirection(chrono::CH_PI / 4.0, chrono::CH_PI / 4.0);  // same
+            m_visFSI->SetLightIntensity(1.0);                             // same (takes double)
+        }
     }
     else if (backend == ::_acsl_::_system_::RenderBackend::IRRLICHT) {
         // ------------------------------------------------------------------------
@@ -586,51 +820,91 @@ void simsystem::SetupVisualizationSystem()
     // STEPS 5 - 6 depend on the RenderBackend
     // ------------------------------------------------------------------------
     if (backend == ::_acsl_::_system_::RenderBackend::VULKAN) {
+        if (!phyconfig.ActivateFSI){
+            // ------------------------------------------------------------------------
+            // STEP 5 – Attach the Chrono physics system for real-time rendering
+            //   This connects the visualization window to the simulation world.
+            // ------------------------------------------------------------------------
+            m_vsg.AttachSystem(&this->m_physics);
 
-        // ------------------------------------------------------------------------
-        // STEP 5 – Attach the Chrono physics system for real-time rendering
-        //   This connects the visualization window to the simulation world.
-        // ------------------------------------------------------------------------
-        m_vsg.AttachSystem(&this->m_physics);
+            // ------------------------------------------------------------------------
+            // STEP 6 – Optional rendering features (camera, collision zones)
+            // ------------------------------------------------------------------------
 
-        // ------------------------------------------------------------------------
-        // STEP 6 – Optional rendering features (camera, collision zones)
-        // ------------------------------------------------------------------------
+            // Add a static camera if requested
+            // Camera is placed at (2, 2, -5) and looks toward (0, 1, 0) in global coordinates
+            if (visconfig.enable_static_cam) {
+                m_vsg.AddCamera(chrono::ChVector3d(2, 2, -5), chrono::ChVector3d(0, 1, 0));
+            }
+            // Add a moving camera if requested
+            // Camera is placed placed at a specified distance from the yaml file
+            else
+            {
+                // Create the following camera attached to the chassis of the UAV. It is always names chassis
+                m_camera = chrono_types::make_shared<chrono::utils::ChChaseCamera>(this->m_physics.SearchBody("chassis"));
+                // Set the camera to always follow the chassis
+                m_camera->SetState(chrono::utils::ChChaseCamera::State::Follow);
+                // Intializet the camera
+                m_camera->Initialize(_shared_::_transformations_::GetChronoPosFromNED(chrono::ChVector3d(0, 0, 0)),    // Attached to the COM of the drone
+                                    this->m_physics.SearchBody("chassis")->GetCoordsys(),                             // Attached to the COM coordsys of the drone
+                                    this->GetVisConfig().mv_cam_chase_dt,                                             // Chase distance
+                                    this->GetVisConfig().mv_cam_chase_ht,                                             // Chase height
+                                    _shared_::_transformations_::GetChronoPosFromNED(chrono::ChVector3d(0 , 0, -1)),  // The up direction for the camera
+                                    _shared_::_transformations_::GetChronoPosFromNED(chrono::ChVector3d(1 , 0,  0))   // The fws direction for the camera
+                );
 
-        // Add a static camera if requested
-        // Camera is placed at (2, 2, -5) and looks toward (0, 1, 0) in global coordinates
-        if (visconfig.enable_static_cam) {
-            m_vsg.AddCamera(chrono::ChVector3d(2, 2, -5), chrono::ChVector3d(0, 1, 0));
+                // Add the camera to the system
+                m_vsg.AddCamera(m_camera->GetCameraPos(), m_camera->GetTargetPos());
+            }
+
+            m_vsg.SetCameraVertical(chrono::CameraVerticalDir::Y);  // match Irrlicht's Y-up convention
+            
+            m_vsg.Initialize();                                     // Initialize the Scene with Vulkan (must be at the end!) 
+
+            // Enable visualization of collision zones/boundaries if requested
+            // if (visconfig.render_collision_zones) {
+            //     m_vsg.SetCollisionVisibility(true);  // Not available in Chrono 9.0.1's VSG module — feature added in a later Chrono version
+            // }
         }
-        // Add a moving camera if requested
-        // Camera is placed placed at a specified distance from the yaml file
-        else
-        {
-            // Create the following camera attached to the chassis of the UAV. It is always names chassis
-            m_camera = chrono_types::make_shared<chrono::utils::ChChaseCamera>(this->m_physics.SearchBody("chassis"));
-            // Set the camera to always follow the chassis
-            m_camera->SetState(chrono::utils::ChChaseCamera::State::Follow);
-            // Intializet the camera
-            m_camera->Initialize(_shared_::_transformations_::GetChronoPosFromNED(chrono::ChVector3d(0, 0, 0)),    // Attached to the COM of the drone
-                                this->m_physics.SearchBody("chassis")->GetCoordsys(),                             // Attached to the COM coordsys of the drone
-                                this->GetVisConfig().mv_cam_chase_dt,                                             // Chase distance
-                                this->GetVisConfig().mv_cam_chase_ht,                                             // Chase height
-                                _shared_::_transformations_::GetChronoPosFromNED(chrono::ChVector3d(0 , 0, -1)),  // The up direction for the camera
-                                _shared_::_transformations_::GetChronoPosFromNED(chrono::ChVector3d(1 , 0,  0))   // The fws direction for the camera
-            );
+        else{
+            // ------------------------------------------------------------------------
+            // STEP 5 – Attach the Chrono physics system for real-time rendering
+            // ------------------------------------------------------------------------
+            m_visFSI->AttachSystem(&this->m_physics);
 
-            // Add the camera to the system
-            m_vsg.AddCamera(m_camera->GetCameraPos(), m_camera->GetTargetPos());
+            // ------------------------------------------------------------------------
+            // STEP 6 – Camera
+            // ------------------------------------------------------------------------
+            if (visconfig.enable_static_cam) {
+                m_visFSI->AddCamera(chrono::ChVector3d(2, 2, -5), chrono::ChVector3d(0, 1, 0));
+            }
+            else
+            {
+                m_camera = chrono_types::make_shared<chrono::utils::ChChaseCamera>(this->m_physics.SearchBody("chassis"));
+                m_camera->SetState(chrono::utils::ChChaseCamera::State::Follow);
+                m_camera->Initialize(_shared_::_transformations_::GetChronoPosFromNED(chrono::ChVector3d(0, 0, 0)),
+                                    this->m_physics.SearchBody("chassis")->GetCoordsys(),
+                                    this->GetVisConfig().mv_cam_chase_dt,
+                                    this->GetVisConfig().mv_cam_chase_ht,
+                                    _shared_::_transformations_::GetChronoPosFromNED(chrono::ChVector3d(0, 0, -1)),
+                                    _shared_::_transformations_::GetChronoPosFromNED(chrono::ChVector3d(1, 0,  0)));
+
+                m_visFSI->AddCamera(m_camera->GetCameraPos(), m_camera->GetTargetPos());
+            }
+
+            m_visFSI->SetCameraVertical(chrono::CameraVerticalDir::Y);
+
+            // ------------------------------------------------------------------------
+            // FSI-specific: what to draw
+            // ------------------------------------------------------------------------
+            m_visFSI->EnableFluidMarkers(visconfig.show_fluid);
+            m_visFSI->EnableBoundaryMarkers(false);
+            m_visFSI->EnableRigidBodyMarkers(visconfig.show_bce);
+            m_visFSI->SetRenderMode(chrono::fsi::ChFsiVisualization::RenderMode::SOLID);
+            m_visFSI->SetParticleRenderMode(chrono::fsi::ChFsiVisualization::RenderMode::SOLID);
+
+            m_visFSI->Initialize();   
         }
-
-        m_vsg.SetCameraVertical(chrono::CameraVerticalDir::Y);  // match Irrlicht's Y-up convention
-        
-        m_vsg.Initialize();                                     // Initialize the Scene with Vulkan (must be at the end!) 
-
-        // Enable visualization of collision zones/boundaries if requested
-        // if (visconfig.render_collision_zones) {
-        //     m_vsg.SetCollisionVisibility(true);  // Not available in Chrono 9.0.1's VSG module — feature added in a later Chrono version
-        // }
     } 
     else if (backend == ::_acsl_::_system_::RenderBackend::IRRLICHT) {
         

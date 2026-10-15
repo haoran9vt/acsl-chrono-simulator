@@ -71,6 +71,7 @@
 #include "chrono/functions/ChFunction.h"
 #include "chrono/physics/ChMarker.h"
 #include "chrono/physics/ChBodyEasy.h"
+#include "chrono/physics/ChInertiaUtils.h"
 
 
 

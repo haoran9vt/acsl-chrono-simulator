@@ -104,10 +104,21 @@ endif()
 #   - Most systems have 1.71.0. Therfore it is set as the minimum required version of Boost
 find_package(Boost 1.71 REQUIRED COMPONENTS log log_setup system filesystem thread)
 
-find_package(Chrono
-             COMPONENTS Irrlicht VSG
+find_package(Chrono REQUIRED
+             COMPONENTS FSI Irrlicht VSG
              OPTIONAL_COMPONENTS PardisoMKL
              CONFIG)
+
+find_package(CUDAToolkit REQUIRED)
+
+find_library(CHRONO_FSI_SPH_LIB
+             NAMES ChronoEngine_fsi_sph
+             PATHS ${Chrono_DIR}/../lib
+             NO_DEFAULT_PATH
+             REQUIRED)
+
+message(STATUS "CHRONO_FSI_FOUND  = ${CHRONO_FSI_FOUND}")
+message(STATUS "CHRONO_LIBRARIES  = ${CHRONO_LIBRARIES}")
 
 #--------------------------------------------------------------
 # Return now if Chrono or a required component was not found.
@@ -292,6 +303,8 @@ target_link_options(acsl_sim PUBLIC ${CHRONO_LINKER_FLAGS})
 
 target_link_libraries(acsl_sim
     ${CHRONO_LIBRARIES}
+    ${CHRONO_FSI_SPH_LIB}
+    CUDA::cudart
     ${Boost_LOG_LIBRARY}
     ${Boost_LOG_SETUP_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}

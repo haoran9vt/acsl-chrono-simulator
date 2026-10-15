@@ -51,17 +51,18 @@ solver:
   # Solver iteration settings - Maximum solver iterations per timestep. 
   # Depending on CPU architecture, you might have to increase this if
   # you repeatedly encounter nan values in the states.
-  MaxIterations: 150
+  MaxIterations: 200
   
   # Warm start option — speeds up convergence by using previous solutions
   EnableWarmStart: true
 
   # Size of each iteration step
-  StepSize: 5e-3
+  StepSize: 1e-4
 
   # Set to true to maintain soft real-time pacing for every simulation tick.
   # This feature is strongly recommended to be swithed off unless necessary.
-  ThrottleRealTime: true
+  # This feature must remain off when running fluid simulations.
+  ThrottleRealTime: false
 
 
 # ============================================================================
@@ -84,5 +85,67 @@ collision:
   # Separation distance at which contact is broken
   ContactBreakingThreshold: 0.002
 
+# ============================================================================
+# Fluid simulation settings
+# ============================================================================
+fluid:
+  # Set to true if you wish to do fluid simulation. Note: 
+  # Fluid simulation is usually very slow.
+  # Requires CUDA 12.9 and less. Nvidia GPU only. 
+  # More detailed information regarding the FSI SPH parameters can be found at:
+  # https://api.projectchrono.org/structchrono_1_1fsi_1_1sph_1_1_ch_fsi_fluid_system_s_p_h_1_1_s_p_h_parameters.html
+  ActivateFSI: true
 
+  # Fluid properties
+  density: 1000.0           # Unit is kg/m^3
+
+  viscosity: 0.001          # Unit is N⋅s/m²
+
+  # SPH parameters
+  sph_method : WCSPH        # Supported types are WCSPH and I2SPH.
+                            # WCSPH: weakly compressible, cheaper per step but need smaller time step.
+                            # I2SPH: imcompressible, implicit and costly per step but more stable.
+
+  num_bce_layers : 4        # Number of layers of boundary condition enforcing kernels.
+                            # More layers prevents liquid from leaking but is more costly
+
+  initial_spacing : 0.0075  # Distance between particles during the intial step. 
+                            # Smaller value results in finer lattice or spacial division but is more costly.
+
+  d0_multiplier : 1.2       # Smoothing length multiplier.
+                            # The higher the value, the more fluid particle interact with its neighbor.
+                            # This means higher value results in costly but smooth simulation.
+                            # Value of 1.2-1.3 is recommended.
+
+  max_velocity : 5.0        # The maximum velocity a fluid particle can travel.
+                            # Too low, then the fluid behave like gas.
+                            # Too high, the simulation become unstable.
+                            # Use as low value as possible.
+
+  xsph_coefficient : 0.5    # Makes particle movement smooth and don't "clip" into each other.
+                            # 0.1-0.5 is the common value range.
+
+  shifting_coefficient : 0.5  # Prevents particle clustering for WCSPH.
+
+  artificial_viscosity : 0.03 # Additional kinematic damping to prevent noise.
+                              # 0.01-0.05 is the typical value range.
+
+  eos_type : TAIT           # Supported types are TAIT and ISOTHERMAL.
+                            # Sets the option for the equation of state that turns density into pressure.
+                            # TAIT is exponential while ISOTHERMAL is linear.
+
+  consistent_gradient_discretization : false    # Only turn on for free surfaces to obtain more accurate pressure.
+                                                # Leave at off most of the cases.
+
+  consistent_laplacian_discretization : false   # Turn on for more accurate viscosity when using Laminar viscosity.
+
+  num_proximity_search_steps : 5  # Determines how many time steps before rebuilding the fluid neighbor list. 
+
+  use_delta_sph : true        # Adds a diffusion term to dampen noise for WCSPH.
+
+  delta_sph_coefficient : 0.1 # Diffusion term to dampen noise for WCSPH. 0.1 is the standard method.
+
+  boundary_type : ADAMI     # Supported types are ADAMI AND HOLMES
+
+  viscosity_type : ARTIFICIAL_UNILATERAL  # Supported types are LAMINAR, ARTIFICIAL_UNILATERAL, and ARTIFICIAL_BILATERAL
 

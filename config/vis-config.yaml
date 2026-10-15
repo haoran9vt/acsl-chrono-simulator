@@ -38,7 +38,7 @@ main:
   # Enable Visualization
   enable_vis: true
 
-  # Set to true for Vulkan visualizaton 
+  # Set to true for Vulkan visualizaton (Fluid only take this)
   enable_vulkan: false
 
   # Set to true for Irrlicht visualizaton (Default) 
@@ -94,6 +94,15 @@ render:
   # Visualize collision/contact boundaries
   render_collision_zones: false
 
+# ============================================================================
+# Render options for fluids (Warning: FSI only allow Vulkan)
+# ============================================================================  
+fluid:
+  # Set to true if you wish to see the fluid moving
+  show_fluid : true
+
+  # Set to true if you wish to see the fluid hitbox
+  show_bce : false
 
 # ============================================================================
 # Window & UI Options
